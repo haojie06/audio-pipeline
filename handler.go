@@ -53,8 +53,7 @@ func CreateStream(c *gin.Context) {
 
 func HeadStreamHandler(c *gin.Context) {
 	streamId := c.Param("stream_id")
-	_, err := getStreamCache(streamId)
-	// bigcache.ErrEntryNotFound
+	stream, err := getStreamCache(streamId)
 	if err != nil {
 		if errors.Is(err, bigcache.ErrEntryNotFound) {
 			c.JSON(404, gin.H{"error": "stream not found"})
@@ -65,13 +64,13 @@ func HeadStreamHandler(c *gin.Context) {
 	}
 	c.Header("Content-Type", "audio/mpeg")
 	c.Header("Accept-Ranges", "bytes")
-	// if stream.Completed {
-	// length := 0
-	// for _, l := range stream.AudioLengths {
-	// 	length += l
-	// }
-	// c.Header("Content-Length", fmt.Sprintf("%d", length))
-	// }
+	if stream.Completed {
+		length := 0
+		for _, l := range stream.AudioLengths {
+			length += l
+		}
+		c.Header("Content-Length", fmt.Sprintf("%d", length))
+	}
 	c.Status(200)
 }
 
@@ -86,10 +85,14 @@ func GetStreamByRange(c *gin.Context) {
 		}
 		return
 	}
-	rangeHeader := c.GetHeader("Range")
 	// map range to audio
 	// Range: bytes=0-100,200-300
+	rangeHeader := c.GetHeader("Range")
 	var startPoint, endPoint int
+	totalLength := 0
+	for _, audioLength := range stream.AudioLengths {
+		totalLength += audioLength
+	}
 	if rangeHeader == "" {
 		startPoint = 0
 		endPoint = 81920
@@ -97,11 +100,7 @@ func GetStreamByRange(c *gin.Context) {
 		startPoint, endPoint = parseRangeHeader(rangeHeader)
 	}
 	if endPoint == -1 {
-		tempLength := 0
-		for _, audioLength := range stream.AudioLengths {
-			tempLength += audioLength
-		}
-		endPoint = tempLength - 1
+		endPoint = totalLength - 1
 	}
 	// find start and end audio index
 	tempLength := 0
@@ -156,12 +155,12 @@ func GetStreamByRange(c *gin.Context) {
 			return
 		}
 
-		// length := 0
-		// for _, l := range stream.AudioLengths {
-		// 	length += l
-		// }
 		c.Header("Accept-Ranges", "bytes")
-		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/*", startPoint, endPoint))
+		if stream.Completed {
+			c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startPoint, endPoint, totalLength))
+		} else {
+			c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/*", startPoint, endPoint))
+		}
 		// todo return 200 when stream completed and endpoint is the last byte
 		c.Data(http.StatusPartialContent, "audio/mpeg", audioBuffer.Bytes())
 	}
