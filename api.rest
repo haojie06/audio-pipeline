@@ -1,0 +1,21 @@
+@host = http://localhost:8080
+
+POST {{host}}/stream HTTP/1.1
+content-type: application/json
+
+{
+    "audios": [
+      "https://download.samplelib.com/mp3/sample-6s.mp3",
+      "https://download.samplelib.com/mp3/sample-9s.mp3",
+      "https://download.samplelib.com/mp3/sample-12s.mp3"
+    ]
+}
+
+###
+@stream_id = 0b473152-8b58-44d3-aa87-3db5eb3d3b45
+
+HEAD {{host}}/stream/{{stream_id}} HTTP/1.1
+
+###
+
+GET {{host}}/stream/{{stream_id}} HTTP/1.1
