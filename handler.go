@@ -66,13 +66,13 @@ func HeadStreamHandler(c *gin.Context) {
 	c.Header("Content-Type", "audio/mpeg")
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Transfer-Encoding", "chunked")
-	if stream.Completed {
-		length := 0
-		for _, l := range stream.AudioLengths {
-			length += l
-		}
-		c.Header("Content-Length", fmt.Sprintf("%d", length))
+	// if stream.Completed {
+	length := 0
+	for _, l := range stream.AudioLengths {
+		length += l
 	}
+	c.Header("Content-Length", fmt.Sprintf("%d", length))
+	// }
 	c.Status(200)
 }
 
