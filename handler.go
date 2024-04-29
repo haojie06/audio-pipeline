@@ -53,7 +53,7 @@ func CreateStream(c *gin.Context) {
 
 func HeadStreamHandler(c *gin.Context) {
 	streamId := c.Param("stream_id")
-	stream, err := getStreamCache(streamId)
+	_, err := getStreamCache(streamId)
 	// bigcache.ErrEntryNotFound
 	if err != nil {
 		if errors.Is(err, bigcache.ErrEntryNotFound) {
@@ -67,11 +67,11 @@ func HeadStreamHandler(c *gin.Context) {
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Transfer-Encoding", "chunked")
 	// if stream.Completed {
-	length := 0
-	for _, l := range stream.AudioLengths {
-		length += l
-	}
-	c.Header("Content-Length", fmt.Sprintf("%d", length))
+	// length := 0
+	// for _, l := range stream.AudioLengths {
+	// 	length += l
+	// }
+	// c.Header("Content-Length", fmt.Sprintf("%d", length))
 	// }
 	c.Status(200)
 }
@@ -155,11 +155,13 @@ func GetStreamByRange(c *gin.Context) {
 			return
 		}
 
-		length := 0
-		for _, l := range stream.AudioLengths {
-			length += l
-		}
-		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startPoint, endPoint, length))
+		// length := 0
+		// for _, l := range stream.AudioLengths {
+		// 	length += l
+		// }
+		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/*", startPoint, endPoint))
+		c.Header("Transfer-Encoding", "chunked")
+		// todo return 200 when stream completed and endpoint is the last byte
 		c.Data(http.StatusPartialContent, "audio/mpeg", audioBuffer.Bytes())
 	}
 

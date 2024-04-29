@@ -1,4 +1,4 @@
-@host = http://lax.ifine.eu:8080
+@host = http://localhost:8080
 
 POST {{host}}/stream HTTP/1.1
 content-type: application/json
