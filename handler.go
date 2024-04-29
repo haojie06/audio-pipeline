@@ -154,15 +154,12 @@ func GetStreamByRange(c *gin.Context) {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
-		if stream.Completed {
-			length := 0
-			for _, l := range stream.AudioLengths {
-				length += l
-			}
-			c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startPoint, endPoint, length))
-		} else {
-			c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/*", startPoint, endPoint))
+
+		length := 0
+		for _, l := range stream.AudioLengths {
+			length += l
 		}
+		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startPoint, endPoint, length))
 		c.Data(http.StatusPartialContent, "audio/mpeg", audioBuffer.Bytes())
 	}
 
