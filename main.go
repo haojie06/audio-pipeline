@@ -14,61 +14,41 @@ func main() {
 		audios := c.QueryArray("audios")
 		fmt.Printf("convert audios: %+v\n", audios)
 		// todo check audios by head request
-		stream, err := generateStream(audios)
+		r, err := generateStream(audios)
 		if err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
 		c.Header("Content-Type", "audio/mpeg")
 		c.Stream(func(w io.Writer) bool {
-			data, ok := <-stream
-			if !ok {
-				fmt.Printf("stream closed\n")
-				return false
+			if _, err := io.Copy(w, r); err != nil {
+				fmt.Printf("io copy error: %s\n", err)
 			}
-			if _, err := w.Write(data); err != nil {
-				fmt.Printf("stream error: %s\n", err)
-				return false
-			}
-			return true
+			return false
 		})
 	})
 	r.Run("0.0.0.0:8080")
 }
 
-type ChanWriter struct {
-	Ch chan<- []byte
-}
-
-func (w ChanWriter) Write(p []byte) (n int, err error) {
-	w.Ch <- p
-	return len(p), nil
-}
-
-func generateStream(audios []string) (chan []byte, error) {
-	dataChan := make(chan []byte)
-	// chanWriter := ChanWriter{Ch: dataChan}
+func generateStream(audios []string) (*io.PipeReader, error) {
+	r, w := io.Pipe()
 	go func() {
+		defer w.Close()
 		for _, audio := range audios {
 			fmt.Printf("loading %s\n", audio)
 			resp, err := http.Get(audio)
 			if err != nil {
 				fmt.Printf("http get error: %s\n", err)
-				close(dataChan)
 				return
 			}
-			// fmt.Printf("start streaming %s\n", audio)
-			// _, err = io.Copy(chanWriter, resp.Body)
-			datas, err := io.ReadAll(resp.Body)
-			if err != nil {
+			fmt.Printf("start streaming %s\n", audio)
+			_, err = io.Copy(w, resp.Body)
+			if err != nil && err != io.EOF {
 				fmt.Printf("io copy error: %s\n", err)
-				close(dataChan)
 				return
 			}
-			dataChan <- datas
 			fmt.Printf("streamed %s\n", audio)
 		}
-		close(dataChan)
 	}()
-	return dataChan, nil
+	return r, nil
 }
