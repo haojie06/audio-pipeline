@@ -65,7 +65,6 @@ func HeadStreamHandler(c *gin.Context) {
 	}
 	c.Header("Content-Type", "audio/mpeg")
 	c.Header("Accept-Ranges", "bytes")
-	c.Header("Transfer-Encoding", "chunked")
 	// if stream.Completed {
 	// length := 0
 	// for _, l := range stream.AudioLengths {
@@ -91,16 +90,18 @@ func GetStreamByRange(c *gin.Context) {
 	// map range to audio
 	// Range: bytes=0-100,200-300
 	var startPoint, endPoint int
-	if rangeHeader == "" || rangeHeader == "bytes=0-" {
+	if rangeHeader == "" {
 		startPoint = 0
-		endPoint = 8192
+		endPoint = 81920
 	} else {
-		var err error
-		startPoint, endPoint, err = parseRangeHeader(rangeHeader)
-		if err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
-			return
+		startPoint, endPoint = parseRangeHeader(rangeHeader)
+	}
+	if endPoint == -1 {
+		tempLength := 0
+		for _, audioLength := range stream.AudioLengths {
+			tempLength += audioLength
 		}
+		endPoint = tempLength - 1
 	}
 	// find start and end audio index
 	tempLength := 0
@@ -159,8 +160,8 @@ func GetStreamByRange(c *gin.Context) {
 		// for _, l := range stream.AudioLengths {
 		// 	length += l
 		// }
+		c.Header("Accept-Ranges", "bytes")
 		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/*", startPoint, endPoint))
-		c.Header("Transfer-Encoding", "chunked")
 		// todo return 200 when stream completed and endpoint is the last byte
 		c.Data(http.StatusPartialContent, "audio/mpeg", audioBuffer.Bytes())
 	}
@@ -205,21 +206,21 @@ func getAudioLength(audio string) (int, error) {
 	return int(resp.ContentLength), nil
 }
 
-func parseRangeHeader(rangeHeader string) (int, int, error) {
+func parseRangeHeader(rangeHeader string) (int, int) {
 	rangeStr := strings.TrimPrefix(rangeHeader, "bytes=")
 	rangeParts := strings.Split(rangeStr, "-")
 	if len(rangeParts) != 2 {
-		return 0, 0, errors.New("invalid range header")
+		return 0, -1
 	}
 	startPoint, err := strconv.Atoi(rangeParts[0])
 	if err != nil {
-		return 0, 0, err
+		return 0, -1
 	}
 	endPoint, err := strconv.Atoi(rangeParts[1])
 	if err != nil {
-		return 0, 0, err
+		return 0, -1
 	}
-	return startPoint, endPoint, nil
+	return startPoint, endPoint
 }
 
 func generateStream(audios []string) (*io.PipeReader, error) {
