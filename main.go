@@ -30,7 +30,6 @@ func main() {
 				fmt.Printf("stream error: %s\n", err)
 				return false
 			}
-			fmt.Printf("streaming %d bytes\n", len(data))
 			return true
 		})
 	})
@@ -48,6 +47,7 @@ func (w ChanWriter) Write(p []byte) (n int, err error) {
 
 func generateStream(audios []string) (chan []byte, error) {
 	dataChan := make(chan []byte)
+	// chanWriter := ChanWriter{Ch: dataChan}
 	go func() {
 		for _, audio := range audios {
 			fmt.Printf("loading %s\n", audio)
@@ -57,13 +57,15 @@ func generateStream(audios []string) (chan []byte, error) {
 				close(dataChan)
 				return
 			}
-			fmt.Printf("streaming %s\n", audio)
-			_, err = io.Copy(ChanWriter{Ch: dataChan}, resp.Body)
+			// fmt.Printf("start streaming %s\n", audio)
+			// _, err = io.Copy(chanWriter, resp.Body)
+			datas, err := io.ReadAll(resp.Body)
 			if err != nil {
 				fmt.Printf("io copy error: %s\n", err)
 				close(dataChan)
 				return
 			}
+			dataChan <- datas
 			fmt.Printf("streamed %s\n", audio)
 		}
 		close(dataChan)
